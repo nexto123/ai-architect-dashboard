@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { simpleParser } from 'mailparser';
 
-const Imap = require('imap-simple');
+const Imap = require('imap');
+const { promisify } = require('util');
 
 export async function GET() {
   const user = process.env.GMAIL_IMAP_USER;
@@ -11,52 +12,71 @@ export async function GET() {
     return NextResponse.json({ error: 'IMAP credentials not configured' }, { status: 500 });
   }
 
-  const config = {
-    imap: {
-      user,
-      password,
-      host: 'imap.gmail.com',
-      port: 993,
-      tls: true,
-      tlsOptions: { rejectUnauthorized: false },
-    },
-  };
+  const imap = new Imap({
+    user,
+    password,
+    host: 'imap.gmail.com',
+    port: 993,
+    tls: true,
+    tlsOptions: { rejectUnauthorized: false },
+  });
 
   try {
-    const connection = await Imap.connect(config);
-    await connection.openBox('INBOX');
+    await new Promise((resolve, reject) => {
+      imap.once('ready', resolve);
+      imap.once('error', reject);
+      imap.connect();
+    });
 
-    // Search for unread emails
-    const searchCriteria = ['UNSEEN'];
-    const fetchOptions = {
-      bodies: ['HEADER', 'TEXT'],
-      markSeen: false,
-    };
+    const openBox = promisify(imap.openBox.bind(imap));
+    await openBox('INBOX', false);
 
-    const messages = await connection.search(searchCriteria, fetchOptions);
-    
-    const emails = await Promise.all(
-      messages.slice(0, 10).map(async (message: any) => {
-        const header = message.parts.find((part: any) => part.which === 'HEADER');
-        const body = message.parts.find((part: any) => part.which === 'TEXT');
+    const search = promisify(imap.search.bind(imap));
+    const results = await search(['UNSEEN']);
+
+    if (!results || results.length === 0) {
+      imap.end();
+      return NextResponse.json({ emails: [] });
+    }
+
+    const fetch = imap.fetch(results.slice(0, 10), { bodies: '' });
+    const emails: any[] = [];
+
+    await new Promise((resolve, reject) => {
+      fetch.on('message', (msg: any, seqno: number) => {
+        let buffer = '';
         
-        const parsed = await simpleParser(body?.body || '');
+        msg.on('body', (stream: any, info: any) => {
+          stream.on('data', (chunk: any) => {
+            buffer += chunk.toString('utf8');
+          });
+        });
         
-        return {
-          id: message.attributes.uid,
-          subject: header?.body?.subject?.[0] || 'No Subject',
-          from: header?.body?.from?.[0] || 'Unknown',
-          date: header?.body?.date?.[0] || new Date().toISOString(),
-          snippet: parsed.text?.substring(0, 200) || 'No preview',
-        };
-      })
-    );
+        msg.once('end', async () => {
+          try {
+            const parsed = await simpleParser(buffer);
+            emails.push({
+              id: seqno,
+              subject: parsed.subject || 'No Subject',
+              from: parsed.from?.text || 'Unknown',
+              date: parsed.date?.toISOString() || new Date().toISOString(),
+              snippet: parsed.text?.substring(0, 200) || 'No preview',
+            });
+          } catch (e) {
+            console.error('Parse error:', e);
+          }
+        });
+      });
 
-    await connection.end();
+      fetch.once('error', reject);
+      fetch.once('end', resolve);
+    });
 
+    imap.end();
     return NextResponse.json({ emails });
+
   } catch (error: any) {
     console.error('IMAP error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'IMAP connection failed' }, { status: 500 });
   }
 }
