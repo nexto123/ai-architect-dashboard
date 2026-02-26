@@ -1,8 +1,24 @@
 import { NextResponse } from 'next/server';
-import { simpleParser } from 'mailparser';
+import tls from 'tls';
 
-const Imap = require('imap');
-const { promisify } = require('util');
+function sendCommand(socket: tls.TLSSocket, command: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let buffer = '';
+    const timeout = setTimeout(() => reject(new Error('Timeout')), 10000);
+    
+    const onData = (data: Buffer) => {
+      buffer += data.toString();
+      if (buffer.includes('\r\n')) {
+        clearTimeout(timeout);
+        socket.off('data', onData);
+        resolve(buffer);
+      }
+    };
+    
+    socket.on('data', onData);
+    socket.write(command + '\r\n');
+  });
+}
 
 export async function GET() {
   const user = process.env.GMAIL_IMAP_USER;
@@ -12,71 +28,65 @@ export async function GET() {
     return NextResponse.json({ error: 'IMAP credentials not configured' }, { status: 500 });
   }
 
-  const imap = new Imap({
-    user,
-    password,
-    host: 'imap.gmail.com',
-    port: 993,
-    tls: true,
-    tlsOptions: { rejectUnauthorized: false },
-  });
-
   try {
-    await new Promise((resolve, reject) => {
-      imap.once('ready', resolve);
-      imap.once('error', reject);
-      imap.connect();
+    // Connect to Gmail IMAP
+    const socket = tls.connect({
+      host: 'imap.gmail.com',
+      port: 993,
+      rejectUnauthorized: false,
     });
 
-    const openBox = promisify(imap.openBox.bind(imap));
-    await openBox('INBOX', false);
+    await new Promise((resolve, reject) => {
+      socket.once('ready', resolve);
+      socket.once('error', reject);
+    });
 
-    const search = promisify(imap.search.bind(imap));
-    const results = await search(['UNSEEN']);
-
-    if (!results || results.length === 0) {
-      imap.end();
-      return NextResponse.json({ emails: [] });
+    // Login
+    await sendCommand(socket, `A1 LOGIN "${user}" "${password}"`);
+    
+    // Select inbox
+    await sendCommand(socket, 'A2 SELECT INBOX');
+    
+    // Search for unread
+    const searchResult = await sendCommand(socket, 'A3 SEARCH UNSEEN');
+    
+    // Parse UIDs
+    const match = searchResult.match(/SEARCH\s+(.+)/);
+    const uids = match ? match[1].trim().split(' ').filter(Boolean) : [];
+    
+    const emails = [];
+    
+    // Fetch first 10 emails
+    for (const uid of uids.slice(0, 10)) {
+      try {
+        const fetchResult = await sendCommand(socket, `A4 FETCH ${uid} (BODY[HEADER.FIELDS (SUBJECT FROM DATE)])`);
+        const subject = fetchResult.match(/Subject:\s*(.+)/i)?.[1] || 'No Subject';
+        const from = fetchResult.match(/From:\s*(.+)/i)?.[1] || 'Unknown';
+        const date = fetchResult.match(/Date:\s*(.+)/i)?.[1] || new Date().toISOString();
+        
+        emails.push({
+          id: uid,
+          subject: subject.replace(/\r\n/g, ''),
+          from: from.replace(/\r\n/g, ''),
+          date: date.replace(/\r\n/g, ''),
+          snippet: 'Email content preview...',
+        });
+      } catch (e) {
+        console.error('Fetch error:', e);
+      }
     }
 
-    const fetch = imap.fetch(results.slice(0, 10), { bodies: '' });
-    const emails: any[] = [];
+    // Logout
+    await sendCommand(socket, 'A5 LOGOUT');
+    socket.end();
 
-    await new Promise((resolve, reject) => {
-      fetch.on('message', (msg: any, seqno: number) => {
-        let buffer = '';
-        
-        msg.on('body', (stream: any, info: any) => {
-          stream.on('data', (chunk: any) => {
-            buffer += chunk.toString('utf8');
-          });
-        });
-        
-        msg.once('end', async () => {
-          try {
-            const parsed = await simpleParser(buffer);
-            emails.push({
-              id: seqno,
-              subject: parsed.subject || 'No Subject',
-              from: parsed.from?.text || 'Unknown',
-              date: parsed.date?.toISOString() || new Date().toISOString(),
-              snippet: parsed.text?.substring(0, 200) || 'No preview',
-            });
-          } catch (e) {
-            console.error('Parse error:', e);
-          }
-        });
-      });
-
-      fetch.once('error', reject);
-      fetch.once('end', resolve);
-    });
-
-    imap.end();
     return NextResponse.json({ emails });
 
   } catch (error: any) {
     console.error('IMAP error:', error);
-    return NextResponse.json({ error: error.message || 'IMAP connection failed' }, { status: 500 });
+    return NextResponse.json({ 
+      error: error.message || 'IMAP connection failed',
+      hint: 'Check that Less secure app access is enabled in Gmail settings'
+    }, { status: 500 });
   }
 }
