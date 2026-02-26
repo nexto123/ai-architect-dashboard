@@ -67,21 +67,9 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [showAddClient, setShowAddClient] = useState(false);
   const [newClient, setNewClient] = useState({ name: '', industry: '' });
-  const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(null);
 
   // Load data from Firebase
   useEffect(() => {
-    // Check for Google OAuth callback (client-side only)
-    if (typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search);
-      const token = urlParams.get('access_token');
-      if (token) {
-        setGoogleAccessToken(token);
-        // Clean up URL
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
-    }
-
     const clientsRef = ref(db, 'clients');
     const agentsRef = ref(db, 'agents');
     const alertsRef = ref(db, 'alerts');
@@ -657,10 +645,7 @@ export default function Dashboard() {
         {activeTab === 'google' && (
           <div>
             <h1 style={{ fontSize: '1.75rem', fontWeight: 600, marginBottom: '2rem' }}>Google Workspace</h1>
-            <GoogleWorkspaceHub 
-              accessToken={googleAccessToken} 
-              onAuth={() => setGoogleAccessToken(null)} 
-            />
+            <GoogleWorkspaceHub />
           </div>
         )}
 

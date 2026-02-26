@@ -1,16 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Mail, Calendar, FolderOpen, FileSpreadsheet, FileText, RefreshCw, Send, Plus } from 'lucide-react';
-import { googleConfig, GOOGLE_AUTH_URL } from '../lib/google-config';
+import { Mail, Calendar, FolderOpen, FileSpreadsheet, FileText, CheckCircle, XCircle } from 'lucide-react';
+import { isServiceAccountConfigured } from '../lib/google-service-account';
 
-interface GoogleWorkspaceHubProps {
-  accessToken: string | null;
-  onAuth: () => void;
-}
-
-export default function GoogleWorkspaceHub({ accessToken, onAuth }: GoogleWorkspaceHubProps) {
+export default function GoogleWorkspaceHub() {
   const [activeTab, setActiveTab] = useState('gmail');
+  const [isConfigured, setIsConfigured] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const tabs = [
     { id: 'gmail', label: 'Gmail', icon: Mail },
@@ -20,31 +17,32 @@ export default function GoogleWorkspaceHub({ accessToken, onAuth }: GoogleWorksp
     { id: 'docs', label: 'Docs', icon: FileText },
   ];
 
-  if (!accessToken) {
-    const authUrl = `${GOOGLE_AUTH_URL}?client_id=${googleConfig.clientId}&redirect_uri=${encodeURIComponent(googleConfig.redirectUri)}&response_type=code&scope=${encodeURIComponent(googleConfig.scopes.join(' '))}&access_type=offline&prompt=consent`;
-    
+  useEffect(() => {
+    // Check if service account is configured
+    fetch('/api/google/status')
+      .then(res => res.json())
+      .then(data => {
+        setIsConfigured(data.configured);
+        setLoading(false);
+      })
+      .catch(() => {
+        setIsConfigured(false);
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading) {
+    return <div style={{ padding: '2rem', textAlign: 'center' }}>Checking Google integration...</div>;
+  }
+
+  if (!isConfigured) {
     return (
       <div style={{ padding: '2rem', textAlign: 'center' }}>
-        <h3 style={{ marginBottom: '1rem' }}>Connect Google Workspace</h3>
+        <XCircle size={48} color="#ff5252" style={{ marginBottom: '1rem' }} />
+        <h3 style={{ marginBottom: '1rem' }}>Google Service Account Not Configured</h3>
         <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
-          Grant access to Gmail, Calendar, Drive, Sheets, and Docs
+          Add GOOGLE_SERVICE_ACCOUNT_KEY to Railway environment variables
         </p>
-        <a
-          href={authUrl}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            padding: '0.75rem 1.5rem',
-            background: 'var(--accent-cyan)',
-            color: '#0a0a0f',
-            borderRadius: 8,
-            textDecoration: 'none',
-            fontWeight: 600,
-          }}
-        >
-          Connect Google Account
-        </a>
       </div>
     );
   }
@@ -87,11 +85,91 @@ export default function GoogleWorkspaceHub({ accessToken, onAuth }: GoogleWorksp
         padding: '1.5rem',
         minHeight: 300
       }}>
-        <p style={{ color: 'var(--text-muted)' }}>
-          {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} integration active. 
-          Access token: {accessToken.substring(0, 20)}...
-        </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+          <CheckCircle size={20} color="#00e676" />
+          <span>Service Account Connected</span>
+        </div>
+        
+        {activeTab === 'gmail' && <GmailView />}
+        {activeTab === 'calendar' && <CalendarView />}
+        {activeTab === 'drive' && <DriveView />}
+        {activeTab === 'sheets' && <SheetsView />}
+        {activeTab === 'docs' && <DocsView />}
       </div>
+    </div>
+  );
+}
+
+function GmailView() {
+  const [emails, setEmails] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/google/gmail/messages')
+      .then(res => res.json())
+      .then(data => {
+        setEmails(data.messages || []);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div>Loading emails...</div>;
+
+  return (
+    <div>
+      <h4 style={{ marginBottom: '1rem' }}>Recent Emails</h4>
+      {emails.length === 0 ? (
+        <p style={{ color: 'var(--text-muted)' }}>No emails found</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          {emails.map((email: any) => (
+            <div key={email.id} style={{
+              padding: '1rem',
+              background: 'var(--bg-secondary)',
+              borderRadius: 8,
+            }}>
+              <div style={{ fontWeight: 500 }}>{email.snippet || 'No preview'}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CalendarView() {
+  return (
+    <div>
+      <h4 style={{ marginBottom: '1rem' }}>Calendar</h4>
+      <p style={{ color: 'var(--text-muted)' }}>Calendar integration coming soon...</p>
+    </div>
+  );
+}
+
+function DriveView() {
+  return (
+    <div>
+      <h4 style={{ marginBottom: '1rem' }}>Google Drive</h4>
+      <p style={{ color: 'var(--text-muted)' }}>Drive integration coming soon...</p>
+    </div>
+  );
+}
+
+function SheetsView() {
+  return (
+    <div>
+      <h4 style={{ marginBottom: '1rem' }}>Google Sheets</h4>
+      <p style={{ color: 'var(--text-muted)' }}>Sheets integration coming soon...</p>
+    </div>
+  );
+}
+
+function DocsView() {
+  return (
+    <div>
+      <h4 style={{ marginBottom: '1rem' }}>Google Docs</h4>
+      <p style={{ color: 'var(--text-muted)' }}>Docs integration coming soon...</p>
     </div>
   );
 }
