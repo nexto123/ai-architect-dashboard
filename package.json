@@ -11,7 +11,9 @@
   "dependencies": {
     "firebase": "^10.8.0",
     "google-auth-library": "^10.6.1",
+    "imap-simple": "^5.1.0",
     "lucide-react": "^0.323.0",
+    "mailparser": "^3.9.3",
     "next": "14.1.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"

@@ -103,24 +103,33 @@ export default function GoogleWorkspaceHub() {
 function GmailView() {
   const [emails, setEmails] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    fetch('/api/google/gmail/messages')
+    fetch('/api/email/imap')
       .then(res => res.json())
       .then(data => {
-        setEmails(data.messages || []);
+        if (data.error) {
+          setError(data.error);
+        } else {
+          setEmails(data.emails || []);
+        }
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(err => {
+        setError(err.message);
+        setLoading(false);
+      });
   }, []);
 
   if (loading) return <div>Loading emails...</div>;
+  if (error) return <div style={{ color: '#ff5252' }}>Error: {error}</div>;
 
   return (
     <div>
-      <h4 style={{ marginBottom: '1rem' }}>Recent Emails</h4>
+      <h4 style={{ marginBottom: '1rem' }}>Recent Emails (IMAP)</h4>
       {emails.length === 0 ? (
-        <p style={{ color: 'var(--text-muted)' }}>No emails found</p>
+        <p style={{ color: 'var(--text-muted)' }}>No unread emails</p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           {emails.map((email: any) => (
@@ -129,7 +138,13 @@ function GmailView() {
               background: 'var(--bg-secondary)',
               borderRadius: 8,
             }}>
-              <div style={{ fontWeight: 500 }}>{email.snippet || 'No preview'}</div>
+              <div style={{ fontWeight: 500, marginBottom: '0.5rem' }}>{email.subject}</div>
+              <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                From: {email.from}
+              </div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+                {email.snippet}...
+              </div>
             </div>
           ))}
         </div>
