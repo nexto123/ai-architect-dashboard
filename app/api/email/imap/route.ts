@@ -86,7 +86,9 @@ export async function GET() {
     console.error('IMAP error:', error);
     return NextResponse.json({ 
       error: error.message || 'IMAP connection failed',
-      hint: 'Check that Less secure app access is enabled in Gmail settings'
+      user: user,
+      passwordLength: password.length,
+      hint: 'Make sure you are using an App Password (16 characters), not your regular Gmail password'
     }, { status: 500 });
   }
 }
