@@ -129,7 +129,7 @@ function GmailView() {
     <div>
       <h4 style={{ marginBottom: '1rem' }}>Recent Emails (IMAP)</h4>
       {emails.length === 0 ? (
-        <p style={{ color: 'var(--text-muted)' }}>No unread emails</p>
+        <p style={{ color: 'var(--text-muted)' }}>No emails found</p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           {emails.map((email: any) => (

@@ -47,8 +47,8 @@ export async function GET() {
     // Select inbox
     await sendCommand(socket, 'A2 SELECT INBOX');
     
-    // Search for unread
-    const searchResult = await sendCommand(socket, 'A3 SEARCH UNSEEN');
+    // Search for ALL emails (not just unread)
+    const searchResult = await sendCommand(socket, 'A3 SEARCH ALL');
     
     // Parse UIDs
     const match = searchResult.match(/SEARCH\s+(.+)/);
