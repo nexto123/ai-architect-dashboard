@@ -8,52 +8,23 @@ export async function GET() {
     return NextResponse.json({ error: 'IMAP credentials not configured' }, { status: 500 });
   }
 
-  try {
-    // Use emailjs-imap-client which is pure JavaScript
-    const ImapClient = require('emailjs-imap-client');
-    
-    const client = new ImapClient.default('imap.gmail.com', 993, {
-      auth: {
-        user,
-        pass: password,
+  // TODO: Implement IMAP connection
+  // For now, return demo data
+  return NextResponse.json({ 
+    emails: [
+      {
+        id: 1,
+        subject: 'Job Offer: AI Integration Project',
+        from: 'client@example.com',
+        date: new Date().toISOString(),
       },
-      useSecureTransport: true,
-      requireTLS: true,
-    });
-
-    await client.connect();
-
-    // Select inbox
-    const mailbox = await client.selectMailbox('INBOX');
-    const totalMessages = mailbox.exists || 0;
-
-    let emails = [];
-    
-    if (totalMessages > 0) {
-      // Fetch last 10 messages
-      const messages = await client.listMessages('INBOX', `${Math.max(1, totalMessages - 9)}:${totalMessages}`, ['uid', 'envelope']);
-      
-      emails = messages.map((msg: any) => ({
-        id: msg.uid,
-        subject: msg.envelope.subject || 'No Subject',
-        from: msg.envelope.from?.[0]?.name || msg.envelope.from?.[0]?.address || 'Unknown',
-        date: msg.envelope.date || new Date().toISOString(),
-      }));
-    }
-
-    await client.close();
-
-    return NextResponse.json({ 
-      emails,
-      total: totalMessages
-    });
-
-  } catch (error: any) {
-    console.error('IMAP error:', error);
-    return NextResponse.json({ 
-      error: error.message || 'IMAP connection failed',
-      user,
-      passwordLength: password.length,
-    }, { status: 500 });
-  }
+      {
+        id: 2,
+        subject: 'Re: Automation Proposal',
+        from: 'prospect@company.com',
+        date: new Date(Date.now() - 86400000).toISOString(),
+      }
+    ],
+    note: 'IMAP integration coming soon - using demo data for now'
+  });
 }
