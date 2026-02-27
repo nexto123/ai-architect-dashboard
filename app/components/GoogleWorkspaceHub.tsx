@@ -87,7 +87,7 @@ export default function GoogleWorkspaceHub() {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
           <CheckCircle size={20} color="#00e676" />
-          <span>Service Account Connected</span>
+          <span>Gmail IMAP Connected</span>
         </div>
         
         {activeTab === 'gmail' && <GmailView />}
