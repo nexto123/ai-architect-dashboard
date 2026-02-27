@@ -35,6 +35,7 @@ export async function GET() {
     const socket = connect({
       host: 'imap.gmail.com',
       port: 993,
+      rejectUnauthorized: false, // Disable cert validation for now
     });
 
     await new Promise((resolve, reject) => {
