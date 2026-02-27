@@ -9,85 +9,43 @@ export async function GET() {
   }
 
   try {
-    // Use a simpler approach with node-imap library
-    const Imap = require('imap');
+    // Use emailjs-imap-client which is pure JavaScript
+    const ImapClient = require('emailjs-imap-client');
     
-    const imap = new Imap({
-      user,
-      password,
-      host: 'imap.gmail.com',
-      port: 993,
-      tls: true,
-      tlsOptions: { rejectUnauthorized: false },
+    const client = new ImapClient.default('imap.gmail.com', 993, {
+      auth: {
+        user,
+        pass: password,
+      },
+      useSecureTransport: true,
+      requireTLS: true,
     });
 
-    const emails = await new Promise((resolve, reject) => {
-      const results: any[] = [];
+    await client.connect();
 
-      imap.once('ready', () => {
-        imap.openBox('INBOX', true, (err: any, box: any) => {
-          if (err) {
-            reject(err);
-            return;
-          }
+    // Select inbox
+    const mailbox = await client.selectMailbox('INBOX');
+    const totalMessages = mailbox.exists || 0;
 
-          // Search for all emails
-          imap.search(['ALL'], (err: any, uids: number[]) => {
-            if (err) {
-              reject(err);
-              return;
-            }
+    let emails = [];
+    
+    if (totalMessages > 0) {
+      // Fetch last 10 messages
+      const messages = await client.listMessages('INBOX', `${Math.max(1, totalMessages - 9)}:${totalMessages}`, ['uid', 'envelope']);
+      
+      emails = messages.map((msg: any) => ({
+        id: msg.uid,
+        subject: msg.envelope.subject || 'No Subject',
+        from: msg.envelope.from?.[0]?.name || msg.envelope.from?.[0]?.address || 'Unknown',
+        date: msg.envelope.date || new Date().toISOString(),
+      }));
+    }
 
-            if (uids.length === 0) {
-              imap.end();
-              resolve([]);
-              return;
-            }
-
-            // Get last 10 emails
-            const last10 = uids.slice(-10);
-            const fetch = imap.fetch(last10, { bodies: 'HEADER.FIELDS (FROM TO SUBJECT DATE)' });
-
-            fetch.on('message', (msg: any, seqno: number) => {
-              let header = '';
-              
-              msg.on('body', (stream: any, info: any) => {
-                stream.on('data', (chunk: any) => {
-                  header += chunk.toString('utf8');
-                });
-              });
-
-              msg.once('end', () => {
-                const subject = header.match(/Subject:\s*([^\r\n]+)/i)?.[1]?.trim() || 'No Subject';
-                const from = header.match(/From:\s*([^\r\n]+)/i)?.[1]?.trim() || 'Unknown';
-                const date = header.match(/Date:\s*([^\r\n]+)/i)?.[1]?.trim() || new Date().toISOString();
-                
-                results.push({
-                  id: seqno,
-                  subject,
-                  from,
-                  date,
-                });
-              });
-            });
-
-            fetch.once('error', (err: any) => reject(err));
-            
-            fetch.once('end', () => {
-              imap.end();
-              resolve(results);
-            });
-          });
-        });
-      });
-
-      imap.once('error', (err: any) => reject(err));
-      imap.connect();
-    });
+    await client.close();
 
     return NextResponse.json({ 
       emails,
-      total: emails.length
+      total: totalMessages
     });
 
   } catch (error: any) {
