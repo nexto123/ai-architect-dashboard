@@ -39,9 +39,9 @@ export default function GoogleWorkspaceHub() {
     return (
       <div style={{ padding: '2rem', textAlign: 'center' }}>
         <XCircle size={48} color="#ff5252" style={{ marginBottom: '1rem' }} />
-        <h3 style={{ marginBottom: '1rem' }}>Google Service Account Not Configured</h3>
+        <h3 style={{ marginBottom: '1rem' }}>Gmail IMAP Not Configured</h3>
         <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
-          Add GOOGLE_SERVICE_ACCOUNT_KEY to Railway environment variables
+          Add GMAIL_IMAP_USER and GMAIL_IMAP_PASS to Railway environment variables
         </p>
       </div>
     );
