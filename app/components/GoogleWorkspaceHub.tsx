@@ -154,19 +154,101 @@ function GmailView() {
 }
 
 function CalendarView() {
+  const [events, setEvents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    fetch('/api/google/calendar/events')
+      .then(res => res.json())
+      .then(data => {
+        if (data.error) {
+          setError(data.error);
+        } else {
+          setEvents(data.events || []);
+        }
+        setLoading(false);
+      })
+      .catch(err => {
+        setError(err.message);
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading) return <div>Loading calendar...</div>;
+  if (error) return <div style={{ color: '#ff5252' }}>Error: {error}</div>;
+
   return (
     <div>
-      <h4 style={{ marginBottom: '1rem' }}>Calendar</h4>
-      <p style={{ color: 'var(--text-muted)' }}>Calendar integration coming soon...</p>
+      <h4 style={{ marginBottom: '1rem' }}>Upcoming Events</h4>
+      {events.length === 0 ? (
+        <p style={{ color: 'var(--text-muted)' }}>No upcoming events</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          {events.map((event: any) => (
+            <div key={event.id} style={{
+              padding: '1rem',
+              background: 'var(--bg-secondary)',
+              borderRadius: 8,
+            }}>
+              <div style={{ fontWeight: 500, marginBottom: '0.5rem' }}>{event.summary}</div>
+              <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                {new Date(event.start?.dateTime || event.start?.date).toLocaleString()}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
 function DriveView() {
+  const [files, setFiles] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    fetch('/api/google/drive/files')
+      .then(res => res.json())
+      .then(data => {
+        if (data.error) {
+          setError(data.error);
+        } else {
+          setFiles(data.files || []);
+        }
+        setLoading(false);
+      })
+      .catch(err => {
+        setError(err.message);
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading) return <div>Loading files...</div>;
+  if (error) return <div style={{ color: '#ff5252' }}>Error: {error}</div>;
+
   return (
     <div>
-      <h4 style={{ marginBottom: '1rem' }}>Google Drive</h4>
-      <p style={{ color: 'var(--text-muted)' }}>Drive integration coming soon...</p>
+      <h4 style={{ marginBottom: '1rem' }}>Recent Files</h4>
+      {files.length === 0 ? (
+        <p style={{ color: 'var(--text-muted)' }}>No files found</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          {files.map((file: any) => (
+            <div key={file.id} style={{
+              padding: '1rem',
+              background: 'var(--bg-secondary)',
+              borderRadius: 8,
+            }}>
+              <div style={{ fontWeight: 500 }}>{file.name}</div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                {file.mimeType}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
