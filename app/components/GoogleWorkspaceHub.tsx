@@ -6,7 +6,7 @@ import { isServiceAccountConfigured } from '../lib/google-service-account';
 
 export default function GoogleWorkspaceHub() {
   const [activeTab, setActiveTab] = useState('gmail');
-  const [isConfigured, setIsConfigured] = useState(false);
+  const [status, setStatus] = useState<any>({});
   const [loading, setLoading] = useState(true);
 
   const tabs = [
@@ -18,15 +18,13 @@ export default function GoogleWorkspaceHub() {
   ];
 
   useEffect(() => {
-    // Check if service account is configured
     fetch('/api/google/status')
       .then(res => res.json())
       .then(data => {
-        setIsConfigured(data.configured);
+        setStatus(data);
         setLoading(false);
       })
       .catch(() => {
-        setIsConfigured(false);
         setLoading(false);
       });
   }, []);
@@ -35,13 +33,19 @@ export default function GoogleWorkspaceHub() {
     return <div style={{ padding: '2rem', textAlign: 'center' }}>Checking Google integration...</div>;
   }
 
+  const isConfigured = activeTab === 'gmail' ? status.gmailConfigured : status.serviceAccountConfigured;
+
   if (!isConfigured) {
     return (
       <div style={{ padding: '2rem', textAlign: 'center' }}>
         <XCircle size={48} color="#ff5252" style={{ marginBottom: '1rem' }} />
-        <h3 style={{ marginBottom: '1rem' }}>Gmail IMAP Not Configured</h3>
+        <h3 style={{ marginBottom: '1rem' }}>
+          {activeTab === 'gmail' ? 'Gmail IMAP Not Configured' : 'Google Service Account Not Configured'}
+        </h3>
         <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
-          Add GMAIL_IMAP_USER and GMAIL_IMAP_PASS to Railway environment variables
+          {activeTab === 'gmail' 
+            ? 'Add GMAIL_IMAP_USER and GMAIL_IMAP_PASS to environment variables'
+            : 'Add GOOGLE_SERVICE_ACCOUNT_KEY to environment variables'}
         </p>
       </div>
     );
@@ -87,7 +91,9 @@ export default function GoogleWorkspaceHub() {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
           <CheckCircle size={20} color="#00e676" />
-          <span>Gmail IMAP Connected</span>
+          <span>
+            {activeTab === 'gmail' ? 'Gmail IMAP Connected' : 'Google Service Account Connected'}
+          </span>
         </div>
         
         {activeTab === 'gmail' && <GmailView />}
