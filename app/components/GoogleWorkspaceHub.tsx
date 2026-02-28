@@ -163,9 +163,29 @@ function CalendarView() {
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [accessToken, setAccessToken] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch('/api/google/calendar/events')
+    // Check for OAuth callback
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('google_access_token');
+    if (token) {
+      setAccessToken(token);
+      localStorage.setItem('google_access_token', token);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else {
+      const saved = localStorage.getItem('google_access_token');
+      if (saved) setAccessToken(saved);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!accessToken) {
+      setLoading(false);
+      return;
+    }
+
+    fetch(`/api/google/calendar/events?access_token=${accessToken}`)
       .then(res => res.json())
       .then(data => {
         if (data.error) {
@@ -179,7 +199,34 @@ function CalendarView() {
         setError(err.message);
         setLoading(false);
       });
-  }, []);
+  }, [accessToken]);
+
+  if (!accessToken) {
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    const redirectUri = `${window.location.origin}/api/auth/google/callback`;
+    const scope = 'https://www.googleapis.com/auth/calendar';
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
+
+    return (
+      <div style={{ textAlign: 'center', padding: '2rem' }}>
+        <p style={{ marginBottom: '1rem' }}>Connect Google Calendar to view events</p>
+        <a
+          href={authUrl}
+          style={{
+            display: 'inline-block',
+            padding: '0.75rem 1.5rem',
+            background: 'var(--accent-cyan)',
+            color: '#0a0a0f',
+            borderRadius: 8,
+            textDecoration: 'none',
+            fontWeight: 600,
+          }}
+        >
+          Connect Calendar
+        </a>
+      </div>
+    );
+  }
 
   if (loading) return <div>Loading calendar...</div>;
   if (error) return <div style={{ color: '#ff5252' }}>Error: {error}</div>;
