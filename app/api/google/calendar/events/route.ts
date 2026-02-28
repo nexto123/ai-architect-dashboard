@@ -21,6 +21,7 @@ async function getAuthClient(scopes: string[]) {
     email: key.client_email,
     key: key.private_key,
     scopes,
+    subject: process.env.GOOGLE_WORKSPACE_USER_EMAIL, // Impersonate your email
   });
 
   return client;
