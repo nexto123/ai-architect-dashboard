@@ -164,6 +164,7 @@ function CalendarView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [authUrl, setAuthUrl] = useState<string>('');
 
   useEffect(() => {
     // Check for OAuth callback
@@ -176,6 +177,14 @@ function CalendarView() {
     } else {
       const saved = localStorage.getItem('google_access_token');
       if (saved) setAccessToken(saved);
+    }
+
+    // Build auth URL
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    if (clientId) {
+      const redirectUri = `${window.location.origin}/api/auth/google/callback`;
+      const scope = 'https://www.googleapis.com/auth/calendar';
+      setAuthUrl(`https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`);
     }
   }, []);
 
@@ -202,10 +211,9 @@ function CalendarView() {
   }, [accessToken]);
 
   if (!accessToken) {
-    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-    const redirectUri = `${window.location.origin}/api/auth/google/callback`;
-    const scope = 'https://www.googleapis.com/auth/calendar';
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
+    if (!authUrl) {
+      return <div>Loading...</div>;
+    }
 
     return (
       <div style={{ textAlign: 'center', padding: '2rem' }}>
