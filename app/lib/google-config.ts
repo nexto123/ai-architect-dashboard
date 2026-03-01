@@ -13,3 +13,4 @@ export const googleConfig = {
 
 export const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 export const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
+export const GOOGLE_API_BASE = 'https://www.googleapis.com';
